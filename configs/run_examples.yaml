@@ -1,0 +1,3 @@
+examples:
+  - instance: tests/instances/A-d10-c5-h1.vrp
+  # - instance: tests/instances/A-d10-c1-h1.vrp
