@@ -40,18 +40,16 @@ def build_cost_matrices(instance, coord):
             C1[(i, j)] = COST1 * euclid(coord[i], coord[j])
             T1[(i, j)] = TIME1 * euclid(coord[i], coord[j])
     
-    N2 = {}
+    N2 = list(instance.hubs.keys()) + list(instance.covers.keys()) + list(instance.demands.keys())
     C2 = {}
     T2 = {}
-    for h in instance.hubs.keys():
-        N2[h] = [h] + list(instance.covers.keys()) + list(instance.demands.keys())
-        for i in N2[h]:
-            for j in N2[h]:
-                if i == j:
-                    continue
-
-                C2[(i, j, h)] = COST2 * euclid(coord[i], coord[j])
-                T2[(i, j, h)] = TIME2 * euclid(coord[i], coord[j])
+    for i in N2:
+        for j in N2:
+            if i == j:
+                continue
+            
+            C2[(i, j)] = COST2 * euclid(coord[i], coord[j])
+            T2[(i, j)] = TIME2 * euclid(coord[i], coord[j])
         
     T3 = {}
     for c in instance.covers.keys():

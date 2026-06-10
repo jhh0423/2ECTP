@@ -123,6 +123,49 @@ def _draw_arc_label(ax, start, end, text, color, y_offset=0.0, perp=None):
     )
 
 
+def _arc_load_value(y_vars, i, j, demands):
+    load = 0.0
+    for demand_id, demand in demands.items():
+        var = y_vars.get((i, j, demand_id))
+        if var is None:
+            continue
+        load += demand.demand * _var_value(var)
+    return load
+
+
+def _draw_cover_assignments(ax, inst, model=None, z=None, min_value=1e-6):
+    has_assignment = False
+
+    if z is None and model is not None and hasattr(model, "_vars"):
+        z = model._vars.get("z", {})
+
+    if not z:
+        return has_assignment
+
+    for demand_id, demand in inst.demands.items():
+        for cover_id, cover in inst.covers.items():
+            var = z.get((demand_id, cover_id))
+            if var is None:
+                continue
+
+            value = _var_value(var)
+            if value <= min_value:
+                continue
+
+            ax.plot(
+                [demand.x, cover.x],
+                [demand.y, cover.y],
+                color="#7f7f7f",
+                linestyle=":",
+                linewidth=1.1,
+                alpha=0.45,
+                zorder=2,
+            )
+            has_assignment = True
+
+    return has_assignment
+
+
 def _draw_solution(ax, inst, model=None, x1=None, x2=None, min_value=1e-6):
     coord = inst.COORD
     # use instance x-range (max_x - min_x) as stable offset scale (same for all arcs)
@@ -182,16 +225,17 @@ def _draw_solution(ax, inst, model=None, x1=None, x2=None, min_value=1e-6):
             shifted_start = (start[0] + perp_x * arrow_offset, start[1] + perp_y * arrow_offset) if arrow_offset != 0 else start
             shifted_end = (end[0] + perp_x * arrow_offset, end[1] + perp_y * arrow_offset) if arrow_offset != 0 else end
             _draw_arrow(ax, shifted_start, shifted_end, color="#1f4e79", linestyle="-", linewidth=2.0, offset=0.0)
-            if y1 and (i, j) in y1:
+            if y1 and value > min_value:
+                load_value = _arc_load_value(y1, i, j, inst.demands)
                 if sign != 0:
                     label_offset = sign * base_offset * 2
                 else:
                     label_offset = 0.0
-                _draw_arc_label(ax, start, end, f"{_var_value(y1[(i, j)]):g}", color="#1f4e79", y_offset=label_offset, perp=(perp_x, perp_y))
+                _draw_arc_label(ax, start, end, f"{load_value:g}", color="#1f4e79", y_offset=label_offset, perp=(perp_x, perp_y))
             has_x1 = True
 
     if x2:
-        for (i, j, h), var in x2.items():
+        for (i, j), var in x2.items():
             value = _var_value(var)
             if abs(value) <= min_value:
                 continue
@@ -218,7 +262,7 @@ def _draw_solution(ax, inst, model=None, x1=None, x2=None, min_value=1e-6):
                 perp_x = perp_y = 0.0
 
             # decide sign for x2 on same hub
-            if (j, i, h) in x2:
+            if (j, i) in x2:
                 sign = 1 if i < j else -1
             else:
                 sign = 0
@@ -227,12 +271,13 @@ def _draw_solution(ax, inst, model=None, x1=None, x2=None, min_value=1e-6):
             shifted_start = (start[0] + perp_x * arrow_offset, start[1] + perp_y * arrow_offset) if arrow_offset != 0 else start
             shifted_end = (end[0] + perp_x * arrow_offset, end[1] + perp_y * arrow_offset) if arrow_offset != 0 else end
             _draw_arrow(ax, shifted_start, shifted_end, color="#c44e52", linestyle="--", linewidth=2.0, offset=0.0)
-            if y2 and (i, j, h) in y2:
+            if y2 and value > min_value:
+                load_value = _arc_load_value(y2, i, j, inst.demands)
                 if sign != 0:
                     label_offset = sign * base_offset * 2
                 else:
                     label_offset = 0.0
-                _draw_arc_label(ax, start, end, f"{_var_value(y2[(i, j, h)]):g}", color="#c44e52", y_offset=label_offset, perp=(perp_x, perp_y))
+                _draw_arc_label(ax, start, end, f"{load_value:g}", color="#c44e52", y_offset=label_offset, perp=(perp_x, perp_y))
             has_x2 = True
 
     return has_x1, has_x2
@@ -267,8 +312,11 @@ def plot_solution(file_path, model=None, x1=None, x2=None, show=True, save_path=
 
     fig, ax = plt.subplots(figsize=(10, 8))
     legend_handles = _draw_base(ax, inst)
+    has_assignment = _draw_cover_assignments(ax, inst, model=model, min_value=min_value)
     has_x1, has_x2 = _draw_solution(ax, inst, model=model, x1=x1, x2=x2, min_value=min_value)
 
+    if has_assignment:
+        legend_handles.append(Line2D([0], [0], color="#7f7f7f", lw=1.1, linestyle=":", label="Demand to covering node"))
     if has_x1:
         legend_handles.append(Line2D([0], [0], color="#1f4e79", lw=2.0, label="Route of the large trucks"))
     if has_x2:
