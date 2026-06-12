@@ -29,7 +29,23 @@ def create_variables(m, instance):
             
             for d in instance.demands:
                 y2[(i, j, d)] = m.addVar(vtype=GRB.BINARY, name=f'y2_{i}_{j}_{d}')
-
+    
+    w1 = {}
+    for i in N1:
+        for j in N1:
+            if i == j:
+                continue
+            for d in instance.demands:
+                w1[(i, j, d)] = m.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f'w1_{i}_{j}_{d}')
+    
+    w2 = {}
+    for i in N2:
+        for j in instance.covers:
+            if i == j:
+                continue
+            for d in instance.demands:
+                w2[(i, j, d)] = m.addVar(vtype=GRB.CONTINUOUS, lb=0, name=f'w2_{i}_{j}_{d}')
+    
     z = {}
     for d in instance.demands:
         for i in instance.N_HC:
@@ -37,7 +53,10 @@ def create_variables(m, instance):
 
     m.update()
     
-    return {'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'z': z}
+    # print number of variables
+    print(f"Number of variables: {len(x1) + len(x2) + len(y1) + len(y2) + len(w1) + len(w2) + len(z)}")
+    
+    return {'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'w1': w1, 'w2': w2, 'z': z}
 
 
 def create_objectives(m, instance, vars_):
@@ -66,7 +85,7 @@ def create_objectives(m, instance, vars_):
     obj_time += gp.quicksum(covers[c].service_time * gp.quicksum(y1[(i, c, d)] for i in instance.N1 if i != c) for c in covers for d in demands)
     obj_time += gp.quicksum(covers[j].service_time * gp.quicksum(y2[(i, j, d)] for i in instance.N2 if i != j) for j in covers for d in demands)
     obj_time += gp.quicksum(demands[j].service_time * gp.quicksum(y2[(i, j, d)] for i in instance.N2 if i != j) for j in demands for d in demands)
-    m.setObjectiveN(obj_time, index=1, priority=1, weight=1, name='total_time')
+    m.setObjectiveN(obj_time, index=1, priority=1, weight=0.13, name='total_time')
 
 
 def add_flow_constraints(m, instance):
@@ -137,10 +156,10 @@ def add_balance_constraints(m, instance):
             rhs_out = gp.quicksum(y1[(h, i, d)] for i in N1 if h != i)
             m.addConstr(lhs == rhs_in - rhs_out, name=f'y2_out_net_y1_{h}')
     
-    for h in hubs:
-        for d in demands:
-            rhs = gp.quicksum(y2[(h, i, d)] for i in N2 if h != i)
-            m.addConstr(z[(d, h)] == rhs, name=f'z_leq_y2_hub_{h}_{d}')
+    # for h in hubs:
+    #     for d in demands:
+    #         rhs = gp.quicksum(y2[(h, i, d)] for i in N2 if h != i)
+    #         m.addConstr(z[(d, h)] == rhs, name=f'z_leq_y2_hub_{h}_{d}')
     
     for c in covers:
         for d in demands:
@@ -151,12 +170,18 @@ def add_balance_constraints(m, instance):
             m.addConstr(z[(d, c)] == rhs_in - rhs_out, name=f'z_eq_net_y_{c}_{d}')
     
     for d in demands:
-        for j in N2:
+        for j in demands:
             if j == d:
                 continue
             lhs = gp.quicksum(y2[(i, j, d)] for i in N2 if i != j)
             rhs = gp.quicksum(y2[(j, i, d)] for i in N2 if i != j)
             m.addConstr(lhs == rhs, name=f'y2_flow_balance_{j}_{d}')
+            
+    for d in demands:
+        for j in covers:
+            lhs = gp.quicksum(y2[(j, i, d)] for i in N2 if i != j)
+            rhs = gp.quicksum(y2[(i, j, d)] for i in N2 if i != j)
+            m.addConstr(lhs <= rhs, name=f'y2_cover_flow_balance_{j}_{d}')
             
     for d in demands:
         lhs1 = gp.quicksum(y2[(i, d, d)] for i in N2 if i != d)
@@ -179,6 +204,49 @@ def add_balance_constraints(m, instance):
         i, j = arc
         lhs = gp.quicksum(demands[d].demand * y2[(i, j, d)] for d in demands)
         m.addConstr(lhs <= instance.CAPACITY2 * x2[(i, j)], name=f'cap_x2_{i}_{j}')
+        
+
+def add_coherency_constraints(m, instance):
+    vars_ = m._vars
+    N1 = instance.N1
+    N2 = instance.N2
+    hubs = instance.hubs
+    covers = instance.covers
+    demands = instance.demands
+    
+    x1 = vars_['x1']
+    x2 = vars_['x2']
+    y1 = vars_['y1']
+    y2 = vars_['y2']
+    z = vars_['z']
+    w1 = vars_['w1']
+    w2 = vars_['w2']
+    
+    for i in N1:
+        for j in N1:
+            if i == j:
+                continue
+            if j == 0:
+                continue
+            
+            m.addConstr(x1[(i, j)] <= gp.quicksum(w1[(i, j, d)] for d in demands), name=f'coherency_x1_y1_{i}_{j}')
+            
+            for d in demands:
+                m.addConstr(w1[(i, j, d)] <= y1[(i, j, d)], name=f'coherency_w1_y1_{i}_{j}_{d}')
+                m.addConstr(w1[(i, j, d)] <= z[(d, j)], name=f'coherency_w1_z_{i}_{j}_{d}')
+                
+    for i in N2:
+        for j in covers:
+            if i == j:
+                continue
+            if j == 0:
+                continue
+
+            m.addConstr(x2[(i, j)] <= gp.quicksum(w2[(i, j, d)] for d in demands), name=f'coherency_x2_y2_{i}_{j}')
+            
+            for d in demands:
+                m.addConstr(w2[(i, j, d)] <= y2[(i, j, d)], name=f'coherency_w2_y2_{i}_{j}_{d}')
+                m.addConstr(w2[(i, j, d)] <= z[(d, j)], name=f'coherency_w2_z_{i}_{j}_{d}')
 
 
 def build_model(instance, write_lp=False):
@@ -195,6 +263,7 @@ def build_model(instance, write_lp=False):
     add_flow_constraints(m, instance)
     add_assignment_constraints(m, instance)
     add_balance_constraints(m, instance)
+    add_coherency_constraints(m, instance)
 
     if write_lp:
         m.write('two_echelon_ctp.lp')

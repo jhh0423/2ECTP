@@ -1,6 +1,1 @@
-__pycache__/
-*.py[cod]
-*.lp
-tests/figures/
-scripts/generate_instance.py
-configs/generate_instance.yaml
+

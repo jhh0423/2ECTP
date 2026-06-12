@@ -17,7 +17,10 @@ def _var_value(var):
     try:
         return var.X
     except AttributeError:
-        return var.x
+        try:
+            return var.x
+        except AttributeError:
+            return getattr(var, "varValue", 0.0)
 
 
 def _draw_base(ax, inst):

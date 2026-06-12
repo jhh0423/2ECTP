@@ -1,0 +1,15 @@
+group_name: B
+demand_count: 10
+cover_count: 3
+hub_count: 2
+cap1: 100
+cap2: 30
+cost1: 1.5
+cost2: 1
+time1: 1.5
+time2: 1
+time3: 10
+output_dir: tests/instances
+seed: null
+coord_min: 0
+coord_max: 100
