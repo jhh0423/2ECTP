@@ -343,6 +343,49 @@ def plot_solution(file_path, model=None, x1=None, x2=None, show=True, save_path=
     return fig, ax, inst
 
 
+def save_solution_details(file_path, model, save_path):
+    if model is None:
+        return
+
+    with open(save_path, "w", encoding="utf-8") as f:
+        f.write(f"Solution Details for {Path(file_path).name}\n")
+        f.write("=" * 50 + "\n")
+        
+        calculate_time = model.solutionTime if hasattr(model, "solutionTime") else None
+        if calculate_time is not None:
+            f.write(f"Calculation Time: {calculate_time:.2f} seconds\n")
+
+        obj_val = "Unknown"
+        if hasattr(model, "ObjVal"):
+            # Gurobi
+            obj_val = model.ObjVal
+        elif hasattr(model, "objective") and model.objective is not None:
+            # PuLP
+            import pulp as pl
+            obj_val = pl.value(model.objective)
+        
+        f.write(f"Objective Value: {obj_val}\n\n")
+        f.write("Variables (Non-zero):\n")
+        f.write("-" * 50 + "\n")
+
+        variables = []
+        if hasattr(model, "getVars"):
+            variables = model.getVars()
+        elif hasattr(model, "variables"):
+            variables = model.variables()
+
+        non_zero_vars = []
+        for var in variables:
+            val = _var_value(var)
+            if val is not None and abs(val) > 1e-6:
+                name = getattr(var, "VarName", getattr(var, "name", str(var)))
+                non_zero_vars.append((name, round(val, 6)))
+        
+        non_zero_vars.sort(key=lambda x: str(x[0]))
+        for name, val in non_zero_vars:
+            f.write(f"{name}: {val}\n")
+
+
 def _load_first_instance_path(config_path=DEFAULT_CONFIG_PATH):
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f) or {}

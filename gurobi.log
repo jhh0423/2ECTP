@@ -1,19 +1,5 @@
 
-Gurobi 13.0.2 (win64, gurobi_cl) logging started Fri Jun 12 09:24:32 2026
-
-Set parameter Username
-Set parameter LicenseID to value 2828824
-Set parameter LogFile to value "gurobi.log"
-Using license file C:\Users\master\gurobi.lic
-
-Gurobi 13.0.2 (win64, gurobi_cl) logging started Fri Jun 12 09:26:13 2026
-
-Set parameter Username
-Set parameter LicenseID to value 2828824
-Set parameter LogFile to value "gurobi.log"
-Using license file C:\Users\master\gurobi.lic
-
-Gurobi 13.0.2 (win64, gurobi_cl) logging started Fri Jun 12 09:27:03 2026
+Gurobi 13.0.2 (win64, gurobi_cl) logging started Fri Jun 12 09:40:51 2026
 
 Set parameter Username
 Set parameter LicenseID to value 2828824

@@ -1,6 +1,6 @@
 group_name: B
-demand_count: 10
-cover_count: 3
+demand_count: 15
+cover_count: 5
 hub_count: 2
 cap1: 100
 cap2: 30

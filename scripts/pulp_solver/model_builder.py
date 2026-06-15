@@ -185,6 +185,14 @@ def add_balance_constraints(model, instance):
             lhs = pl.lpSum(y2[(i, j, d)] for i in N2 if i != j)
             rhs = pl.lpSum(y2[(j, i, d)] for i in N2 if i != j)
             model += lhs == rhs, f"y2_flow_balance_{j}_{d}"
+            
+    # for d in demands:
+    #     for j in N1:
+    #         if j == 0:
+    #             continue
+    #         lhs = pl.lpSum(y1[(j, i, d)] for i in N1 if i != j)
+    #         rhs = pl.lpSum(y1[(i, j, d)] for i in N1 if i != j)
+    #         model += lhs <= rhs, f"y1_cover_flow_balance_{j}_{d}"
 
     for d in demands:
         for j in covers:
@@ -272,10 +280,10 @@ def build_model(instance, write_lp=False):
     add_balance_constraints(model, instance)
     add_coherency_constraints(model, instance)
 
-    if write_lp:
-        try:
-            model.writeLP("two_echelon_ctp.lp")
-        except Exception:
-            pass
+    # if write_lp:
+    #     try:
+    #         model.writeLP("two_echelon_ctp.lp")
+    #     except Exception:
+    #         pass
 
     return model

@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import yaml
+from time import strftime
 
 # Ensure imports work when this file is executed as a script
 import sys
@@ -12,7 +13,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from pulp_solver.solver import run
-from visualize import plot_solution
+from visualize import plot_solution, save_solution_details
 
 
 DEFAULT_CONFIG = PROJECT_ROOT / 'configs' / 'run_examples.yaml'
@@ -24,14 +25,19 @@ def main():
 
     figure_dir = PROJECT_ROOT / 'tests' / 'figures'
     figure_dir.mkdir(parents=True, exist_ok=True)
+    details_dir = PROJECT_ROOT / 'tests' / 'results'
+    details_dir.mkdir(parents=True, exist_ok=True)
 
     for ex in examples:
         instance_path = (PROJECT_ROOT / ex['instance']).resolve()
         print(f"Running example: {instance_path.name} -> instance={instance_path}")
         model = run(str(instance_path), write_lp=True)
         if model is not None:
-            save_path = figure_dir / f"{instance_path.stem}_solution.png"
+            time = strftime("%Y-%m-%d-%H-%M-%S")
+            save_path = figure_dir / f"{instance_path.stem}_solution_{time}.png"
             plot_solution(instance_path, model=model, show=True, save_path=save_path)
+            details_path = details_dir / f"{instance_path.stem}_solution_details_{time}.txt"
+            save_solution_details(instance_path, model=model, save_path=details_path)
 
 
 if __name__ == '__main__':

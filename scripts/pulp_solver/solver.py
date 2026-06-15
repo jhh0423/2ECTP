@@ -27,14 +27,9 @@ def run(instance_file, write_lp=True):
     instance = read_2e_ctp_instance(instance_file)
     model = build_model(instance, write_lp=False)
 
-    if write_lp:
-        try:
-            model.writeLP("two_echelon_ctp.lp")
-        except Exception:
-            pass
-
     try:
-        model.solve(pl.SCIP_PY())
+        #model.solve(pl.SCIP_PY())
+        model.solve(pl.HiGHS())
     except Exception as exc:
         print(f"Solver failed with unexpected error: {exc}")
         return None
