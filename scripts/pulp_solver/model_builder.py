@@ -146,7 +146,7 @@ def add_assignment_constraints(model, instance):
 
     for d in instance.demands:
         lhs = pl.lpSum(z[(d, i)] for i in instance.N_HC)
-        model += lhs == 1, f"z_assign_{d}"
+        model += 1 <= lhs, f"z_assign_{d}"
 
 
 def add_balance_constraints(model, instance):
@@ -165,10 +165,11 @@ def add_balance_constraints(model, instance):
 
     for h in hubs:
         for d in demands:
-            lhs = pl.lpSum(y2[(h, i, d)] for i in N2 if h != i)
             rhs_in = pl.lpSum(y1[(i, h, d)] for i in N1 if i != h)
             rhs_out = pl.lpSum(y1[(h, i, d)] for i in N1 if h != i)
-            model += lhs == rhs_in - rhs_out, f"y2_out_net_y1_{h}_{d}"
+            rhs2 = pl.lpSum(y2[(h, i, d)] for i in N2 if h != i)
+            model += z[(d, h)] == rhs_in - rhs_out, f"y2_out_net_y1_{h}_{d}"
+            model += z[(d, h)] == rhs2, f"z_eq_net_y2_{h}_{d}"
 
     for c in covers:
         for d in demands:
