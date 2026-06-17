@@ -35,10 +35,10 @@ def create_variables(model, instance):
             z[(d, i)] = pl.LpVariable(f"z_{d}_{i}", cat=pl.LpBinary)
 
     print(
-        f"Number of variables: {len(x1) + len(x2) + len(y1) + len(y2) + len(w1) + len(w2) + len(z)}"
+        f"Number of variables: {len(x1) + len(x2) + len(y1) + len(y2) + len(z)}"
     )
 
-    return {"x1": x1, "x2": x2, "y1": y1, "y2": y2, "w1": w1, "w2": w2, "z": z}
+    return {"x1": x1, "x2": x2, "y1": y1, "y2": y2, "z": z}
 
 
 def create_objectives(model, instance, vars_):
