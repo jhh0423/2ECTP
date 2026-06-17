@@ -29,22 +29,6 @@ def create_variables(model, instance):
             for d in instance.demands:
                 y2[(i, j, d)] = pl.LpVariable(f"y2_{i}_{j}_{d}", cat=pl.LpBinary)
 
-    w1 = {}
-    for i in N1:
-        for j in N1:
-            if i == j:
-                continue
-            for d in instance.demands:
-                w1[(i, j, d)] = pl.LpVariable(f"w1_{i}_{j}_{d}", lowBound=0, cat=pl.LpContinuous)
-
-    w2 = {}
-    for i in N2:
-        for j in instance.covers:
-            if i == j:
-                continue
-            for d in instance.demands:
-                w2[(i, j, d)] = pl.LpVariable(f"w2_{i}_{j}_{d}", lowBound=0, cat=pl.LpContinuous)
-
     z = {}
     for d in instance.demands:
         for i in instance.N_HC:
@@ -120,7 +104,7 @@ def add_flow_constraints(model, instance):
         model += lhs == rhs, f"flow_x2_{j}"
 
 
-def add_assignment_constraints(model, instance):
+def add_initial_constraints(model, instance):
     vars_ = model._vars
 
     y1 = vars_["y1"]
@@ -144,25 +128,24 @@ def add_assignment_constraints(model, instance):
                     continue
                 model += y2[(i, h, d)] == 0, f"y2_hub_in_zero_{h}_{d}_{i}"
 
-    for d in instance.demands:
-        lhs = pl.lpSum(z[(d, i)] for i in instance.N_HC)
-        model += 1 <= lhs, f"z_assign_{d}"
 
-
-def add_balance_constraints(model, instance):
+def add_assignment_constraints(model, instance):
     vars_ = model._vars
+    
+    y1 = vars_["y1"]
+    y2 = vars_["y2"]
+    z = vars_["z"]
+    
     N1 = instance.N1
     N2 = instance.N2
     hubs = instance.hubs
     covers = instance.covers
     demands = instance.demands
-
-    x1 = vars_["x1"]
-    x2 = vars_["x2"]
-    y1 = vars_["y1"]
-    y2 = vars_["y2"]
-    z = vars_["z"]
-
+    
+    for d in demands:
+        lhs = pl.lpSum(z[(d, i)] for i in instance.N_HC)
+        model += 1 <= lhs, f"z_assign_{d}"
+        
     for h in hubs:
         for d in demands:
             rhs_in = pl.lpSum(y1[(i, h, d)] for i in N1 if i != h)
@@ -186,6 +169,21 @@ def add_balance_constraints(model, instance):
             lhs = pl.lpSum(y2[(i, j, d)] for i in N2 if i != j)
             rhs = pl.lpSum(y2[(j, i, d)] for i in N2 if i != j)
             model += lhs == rhs, f"y2_flow_balance_{j}_{d}"
+
+
+def add_parcel_constraints(model, instance):
+    vars_ = model._vars
+    N1 = instance.N1
+    N2 = instance.N2
+    hubs = instance.hubs
+    covers = instance.covers
+    demands = instance.demands
+
+    x1 = vars_["x1"]
+    x2 = vars_["x2"]
+    y1 = vars_["y1"]
+    y2 = vars_["y2"]
+    z = vars_["z"]
             
     # for d in demands:
     #     for j in N1:
@@ -224,48 +222,6 @@ def add_balance_constraints(model, instance):
         model += lhs <= instance.CAPACITY2 * x2[(i, j)], f"cap_x2_{i}_{j}"
 
 
-def add_coherency_constraints(model, instance):
-    vars_ = model._vars
-    N1 = instance.N1
-    N2 = instance.N2
-    covers = instance.covers
-    demands = instance.demands
-
-    x1 = vars_["x1"]
-    x2 = vars_["x2"]
-    y1 = vars_["y1"]
-    y2 = vars_["y2"]
-    z = vars_["z"]
-    w1 = vars_["w1"]
-    w2 = vars_["w2"]
-
-    for i in N1:
-        for j in N1:
-            if i == j:
-                continue
-            if j == 0:
-                continue
-
-            model += x1[(i, j)] <= pl.lpSum(w1[(i, j, d)] for d in demands), f"coherency_x1_y1_{i}_{j}"
-
-            for d in demands:
-                model += w1[(i, j, d)] <= y1[(i, j, d)], f"coherency_w1_y1_{i}_{j}_{d}"
-                model += w1[(i, j, d)] <= z[(d, j)], f"coherency_w1_z_{i}_{j}_{d}"
-
-    for i in N2:
-        for j in covers:
-            if i == j:
-                continue
-            if j == 0:
-                continue
-
-            model += x2[(i, j)] <= pl.lpSum(w2[(i, j, d)] for d in demands), f"coherency_x2_y2_{i}_{j}"
-
-            for d in demands:
-                model += w2[(i, j, d)] <= y2[(i, j, d)], f"coherency_w2_y2_{i}_{j}_{d}"
-                model += w2[(i, j, d)] <= z[(d, j)], f"coherency_w2_z_{i}_{j}_{d}"
-
-
 def build_model(instance, write_lp=False):
     instance = prepare_data(instance)
 
@@ -277,9 +233,9 @@ def build_model(instance, write_lp=False):
     model._vars = vars_
 
     add_flow_constraints(model, instance)
+    add_initial_constraints(model, instance)
     add_assignment_constraints(model, instance)
-    add_balance_constraints(model, instance)
-    add_coherency_constraints(model, instance)
+    add_parcel_constraints(model, instance)
 
     # if write_lp:
     #     try:
