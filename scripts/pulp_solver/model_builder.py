@@ -162,14 +162,6 @@ def add_assignment_constraints(model, instance):
             rhs_out += pl.lpSum(y2[(c, i, d)] for i in N2 if c != i)
             model += z[(d, c)] == rhs_in - rhs_out, f"z_eq_net_y_{c}_{d}"
 
-    for d in demands:
-        for j in demands:
-            if j == d:
-                continue
-            lhs = pl.lpSum(y2[(i, j, d)] for i in N2 if i != j)
-            rhs = pl.lpSum(y2[(j, i, d)] for i in N2 if i != j)
-            model += lhs == rhs, f"y2_flow_balance_{j}_{d}"
-
 
 def add_parcel_constraints(model, instance):
     vars_ = model._vars
@@ -198,6 +190,14 @@ def add_parcel_constraints(model, instance):
             lhs = pl.lpSum(y2[(j, i, d)] for i in N2 if i != j)
             rhs = pl.lpSum(y2[(i, j, d)] for i in N2 if i != j)
             model += lhs <= rhs, f"y2_cover_flow_balance_{j}_{d}"
+            
+    for d in demands:
+        for j in demands:
+            if j == d:
+                continue
+            lhs = pl.lpSum(y2[(i, j, d)] for i in N2 if i != j)
+            rhs = pl.lpSum(y2[(j, i, d)] for i in N2 if i != j)
+            model += lhs == rhs, f"y2_flow_balance_{j}_{d}"
 
     for d in demands:
         lhs1 = pl.lpSum(y2[(i, d, d)] for i in N2 if i != d)
