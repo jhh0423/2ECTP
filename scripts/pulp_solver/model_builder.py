@@ -220,8 +220,127 @@ def add_parcel_constraints(model, instance):
         i, j = arc
         lhs = pl.lpSum(demands[d].demand * y2[(i, j, d)] for d in demands)
         model += lhs <= instance.CAPACITY2 * x2[(i, j)], f"cap_x2_{i}_{j}"
+        
 
+def add_connection_constraints(model, instance):
+    vars_ = model._vars
+    
+    x1 = vars_["x1"]
+    x2 = vars_["x2"]
+    y1 = vars_["y1"]
+    y2 = vars_["y2"]
+    z = vars_["z"]
+    
+    demands = instance.demands
+    
+    xc1 = {}
+    yc_out1 = {}
+    yc_in1 = {}
+    for h in instance.N_HC:
+        for i in instance.N1:
+            if i == h:
+                continue
+            for j in instance.N1:
+                if j == h | j == i:
+                    continue
+                xc1[(i, h, j)] = pl.LpVariable(f"xc1_{i}_{h}_{j}", lowBound=0, cat=pl.LpInteger)
+                
+                for d in instance.demands:
+                    yc_out1[(i, h, j, d)] = pl.LpVariable(f"yc_out_{i}_{h}_{j}_{d}", lowBound=0, upBound=1, cat=pl.LpBinary)
+                    yc_in1[(i, h, j, d)] = pl.LpVariable(f"yc_in_{i}_{h}_{j}_{d}", lowBound=0, upBound=1, cat=pl.LpBinary)
 
+    xc2 = {}
+    yc_out2 = {}
+    yc_in2 = {}
+    for c in instance.covers:
+        for i in instance.N2:
+            if i == c:
+                continue
+            for j in instance.N2:
+                if j == c | j == i:
+                    continue
+                xc2[(i, c, j)] = pl.LpVariable(f"xc2_{i}_{c}_{j}", lowBound=0, cat=pl.LpInteger)
+                
+                for d in instance.demands:
+                    yc_out2[(i, c, j, d)] = pl.LpVariable(f"yc_out2_{i}_{c}_{j}_{d}", lowBound=0, upBound=1, cat=pl.LpBinary)
+                    yc_in2[(i, c, j, d)] = pl.LpVariable(f"yc_in2_{i}_{c}_{j}_{d}", lowBound=0, upBound=1, cat=pl.LpBinary)
+
+    model._vars["xc1"] = xc1
+    model._vars["yc_out1"] = yc_out1
+    model._vars["yc_in1"] = yc_in1
+    model._vars["xc2"] = xc2
+    model._vars["yc_out2"] = yc_out2
+    model._vars["yc_in2"] = yc_in2
+    
+    for h in instance.N_HC:
+        for j in instance.N1:
+            if j == h:
+                continue
+            lhs = pl.lpSum(xc1[(i, h, j)] for i in instance.N1 if i != h and i != j)
+            rhs = x1[(h, j)]
+            model += lhs == rhs, f"xc1_out_eq_x1_{h}_{j}"
+            
+            lhs = pl.lpSum(xc1[(j, h, i)] for i in instance.N1 if i != h and i != j)
+            rhs = x1[(j, h)]
+            model += lhs == rhs, f"xc1_in_eq_x1_{j}_{h}"
+            
+            for i in instance.N1:
+                if i == h or i == j:
+                    continue
+                
+                lhs = pl.lpSum(demands[d].demand * yc_in1[(i, h, j, d)] for d in demands)
+                rhs = instance.CAPACITY1 * xc1[(i, h, j)]
+                model += lhs <= rhs, f"cap_xc1_{i}_{h}_{j}"
+                
+                for d in demands:
+                    lhs = yc_in1[(i, h, j, d)]
+                    rhs = yc_out1[(i, h, j, d)]
+                    model += lhs >= rhs, f"yc1_in_out_z_{i}_{h}_{j}_{d}"
+            
+            for d in demands:
+                lhs = pl.lpSum(yc_out1[(i, h, j, d)] for i in instance.N1 if i != h and i != j)
+                rhs = y1[(h, j, d)]
+                model += lhs == rhs, f"yc1_out_eq_y1_{h}_{j}_{d}"
+                
+                lhs = pl.lpSum(yc_in1[(j, h, i, d)] for i in instance.N1 if i != h and i != j)
+                rhs = y1[(j, h, d)]
+                model += lhs == rhs, f"yc1_in_eq_y1_{j}_{h}_{d}"
+
+    for c in instance.covers:
+        for j in instance.N2:
+            if j == c:
+                continue
+            lhs = pl.lpSum(xc2[(i, c, j)] for i in instance.N2 if i != c and i != j)
+            rhs = x2[(c, j)]
+            model += lhs == rhs, f"xc2_out_eq_x2_{c}_{j}"
+            
+            lhs = pl.lpSum(xc2[(j, c, i)] for i in instance.N2 if i != c and i != j)
+            rhs = x2[(j, c)]
+            model += lhs == rhs, f"xc2_in_eq_x2_{j}_{c}"
+            
+            for i in instance.N2:
+                if i == c or i == j:
+                    continue
+
+                lhs = pl.lpSum(demands[d].demand * yc_in2[(i, c, j, d)] for d in demands)
+                rhs = instance.CAPACITY2 * xc2[(i, c, j)]
+                model += lhs <= rhs, f"cap_xc2_{i}_{c}_{j}"
+                
+                for d in demands:
+                    lhs = yc_in2[(i, c, j, d)]
+                    rhs = yc_out2[(i, c, j, d)]
+                    model += lhs >= rhs, f"yc2_in_out_z_{i}_{c}_{j}_{d}"
+                
+            for d in demands:
+                lhs = pl.lpSum(yc_out2[(i, c, j, d)] for i in instance.N2 if i != c and i != j)
+                rhs = y2[(c, j, d)]
+                model += lhs == rhs, f"yc2_out_eq_y2_{c}_{j}_{d}"
+                
+                lhs = pl.lpSum(yc_in2[(j, c, i, d)] for i in instance.N2 if i != c and i != j)
+                rhs = y2[(j, c, d)]
+                model += lhs == rhs, f"yc2_in_eq_y2_{j}_{c}_{d}"
+                    
+                    
 def build_model(instance, write_lp=False):
     instance = prepare_data(instance)
 
@@ -236,6 +355,8 @@ def build_model(instance, write_lp=False):
     add_initial_constraints(model, instance)
     add_assignment_constraints(model, instance)
     add_parcel_constraints(model, instance)
+    add_connection_constraints(model, instance)
+
 
     # if write_lp:
     #     try:
